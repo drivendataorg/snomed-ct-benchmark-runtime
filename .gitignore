@@ -1,0 +1,7 @@
+.ruff_cache
+.uv-cache
+data/
+/submission/
+!submission/.gitkeep
+.env
+.DS_Store

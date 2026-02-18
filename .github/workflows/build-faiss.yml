@@ -1,0 +1,58 @@
+name: build-faiss
+
+# Manual trigger only - run this once or when updating faiss version
+on:
+  workflow_dispatch:
+    inputs:
+      faiss_version:
+        description: 'Faiss version tag (e.g., v1.13.2)'
+        required: true
+        default: 'v1.13.2'
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  LOGIN_SERVER: snomedctbenchmarkprodacr.azurecr.io
+  IMAGE: faiss-builder
+
+jobs:
+  build-faiss:
+    name: Build faiss-builder
+    runs-on: snomed-ct-benchmark-ubuntu-24.04-4core
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Disk information
+        run: df -h
+
+      - name: Build faiss-builder image
+        run: |
+          docker build runtime \
+            -f runtime/Dockerfile.faiss \
+            --build-arg FAISS_VERSION=${{ inputs.faiss_version }} \
+            --tag $LOGIN_SERVER/$IMAGE:${{ inputs.faiss_version }}
+
+      - name: Check image size
+        run: |
+          docker image list $LOGIN_SERVER/$IMAGE --format "{{.Tag}}: {{.Size}}" | tee -a $GITHUB_STEP_SUMMARY
+
+      - name: Log into Azure
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Log into ACR with Docker
+        uses: azure/docker-login@v2
+        with:
+          login-server: ${{ env.LOGIN_SERVER }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Push faiss-builder to ACR
+        run: docker push $LOGIN_SERVER/$IMAGE:${{ inputs.faiss_version }}

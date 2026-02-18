@@ -1,0 +1,65 @@
+# Build faiss-gpu from source for multiple CUDA architectures
+# See https://github.com/facebookresearch/faiss/blob/main/INSTALL.md#building-from-source
+#
+# Build: docker build -f Dockerfile.faiss -t faiss-builder:v1.13.2 .
+# The built wheel and libraries can be copied from this image.
+
+FROM nvidia/cuda:12.6.0-devel-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    git \
+    wget \
+    curl \
+    libopenblas-dev \
+    liblapack-dev \
+    swig \
+    software-properties-common \
+    && add-apt-repository ppa:deadsnakes/ppa -y \
+    && apt-get update \
+    && apt-get install -y \
+        python3.12 \
+        python3.12-dev \
+        python3.12-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.12 - && \
+    python3.12 -m pip install --upgrade pip setuptools
+
+RUN python3.12 -m pip install --no-cache-dir numpy setuptools wheel packaging cmake>=3.24 build
+
+WORKDIR /build
+ARG FAISS_VERSION=v1.13.2
+RUN git clone --branch ${FAISS_VERSION} https://github.com/facebookresearch/faiss.git
+
+WORKDIR /build/faiss
+RUN cmake -B build \
+    -DFAISS_ENABLE_GPU=ON \
+    -DFAISS_ENABLE_PYTHON=ON \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DFAISS_OPT_LEVEL=avx2 \
+    -DFAISS_USE_LTO=ON \
+    -DCMAKE_CUDA_ARCHITECTURES="70;75;80;86;90" \
+    -DBUILD_TESTING=OFF \
+    -DBUILD_SHARED_LIBS=ON \
+    -DPython_EXECUTABLE=/usr/bin/python3.12 \
+    -DPython_INCLUDE_DIR=/usr/include/python3.12 \
+    -DPython_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.12.so \
+    .
+
+RUN cmake --build build -j$(nproc) --target faiss_avx2 && \
+    cmake --build build -j$(nproc) --target swigfaiss && \
+    cmake --install build
+
+WORKDIR /build/faiss/build/faiss/python
+RUN python3.12 -m build --wheel --no-isolation
+
+# Output locations:
+# - Wheel: /build/faiss/build/faiss/python/dist/*.whl
+# - Libraries: /usr/local/lib/libfaiss*
+# - Python callbacks: /build/faiss/build/faiss/python/libfaiss_python_callbacks.so

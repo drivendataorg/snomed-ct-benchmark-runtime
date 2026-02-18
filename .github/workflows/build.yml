@@ -1,0 +1,128 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    paths: ["runtime/**", ".github/workflows/build.yml"]
+  pull_request:
+    paths: ["runtime/**", ".github/workflows/build.yml"]
+  workflow_dispatch:
+    inputs:
+      publishDev:
+        description: 'Publish dev image as gpu-{sha}'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  ACR_NAME: snomedctbenchmarkprodacr
+  LOGIN_SERVER: snomedctbenchmarkprodacr.azurecr.io
+  IMAGE: snomed-ct-benchmark-runtime
+  FAISS_IMAGE: snomedctbenchmarkprodacr.azurecr.io/faiss-builder:v1.13.2
+
+jobs:
+  check-lock:
+    name: Check lockfile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: extractions/setup-just@v3
+
+      - uses: astral-sh/setup-uv@v7
+
+      - name: Check lockfile is up to date
+        run: just check-lock
+
+  decide:
+    name: Decide if image should be published
+    runs-on: ubuntu-latest
+    outputs:
+      should_publish: ${{ steps.decide.outputs.should_publish }}
+      should_publish_latest: ${{ steps.decide.outputs.should_publish_latest }}
+      env_name: ${{ steps.decide.outputs.env_name }}
+    steps:
+      - id: decide
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" && "${{ vars.PUBLISH_LATEST_ON_MAIN }}" != "" ]]; then
+            should_publish=true
+            should_publish_latest=true
+            env_name=production
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.publishDev }}" == "true" ]]; then
+            should_publish=true
+            should_publish_latest=false
+            env_name=production
+          else
+            should_publish=false
+            should_publish_latest=false
+            env_name=dev
+          fi
+          {
+            echo "should_publish=$should_publish"
+            echo "should_publish_latest=$should_publish_latest"
+            echo "env_name=$env_name"
+          } | tee -a "$GITHUB_OUTPUT"
+
+  build:
+    name: Build
+    needs: [check-lock, decide]
+    runs-on: snomed-ct-benchmark-ubuntu-24.04-4core
+    env:
+      SHA_TAG: gpu-${{ github.sha }}
+      LATEST_TAG: gpu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: extractions/setup-just@v3
+
+      - name: Disk information
+        run: df -h
+
+      - name: Log into Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Log into ACR with OIDC token
+        run: |
+          TOKEN=$(az acr login --name "$ACR_NAME" --expose-token --output tsv --query accessToken)
+          echo "$TOKEN" | docker login "$LOGIN_SERVER" -u 00000000-0000-0000-0000-000000000000 --password-stdin
+
+      - name: Pull faiss-builder from ACR
+        run: docker pull $FAISS_IMAGE
+
+      - name: Build test image
+        run: |
+          docker build runtime \
+            --target test-runtime \
+            --build-context faiss-builder=docker-image://$FAISS_IMAGE \
+            --tag $LOGIN_SERVER/$IMAGE:test
+
+      - name: Run tests
+        run: docker run --rm $LOGIN_SERVER/$IMAGE:test
+
+      - name: Build runtime image
+        run: |
+          docker build runtime \
+            --target runtime \
+            --build-context faiss-builder=docker-image://$FAISS_IMAGE \
+            --tag $LOGIN_SERVER/$IMAGE:$SHA_TAG
+
+      - name: Tag as latest
+        if: ${{ needs.decide.outputs.should_publish_latest == 'true' }}
+        run: docker tag $LOGIN_SERVER/$IMAGE:$SHA_TAG $LOGIN_SERVER/$IMAGE:$LATEST_TAG
+
+      - name: Check image size
+        run: |
+          docker image list $LOGIN_SERVER/$IMAGE --format "{{.Tag}}: {{.Size}}" | tee -a $GITHUB_STEP_SUMMARY
+
+      - name: Push image to ACR
+        if: ${{ needs.decide.outputs.should_publish == 'true' }}
+        run: docker push $LOGIN_SERVER/$IMAGE --all-tags
