@@ -3,6 +3,7 @@
 All tests in this file are skipped if no GPU is detected.
 """
 
+import os
 import subprocess
 
 import numpy as np
@@ -101,9 +102,20 @@ def test_faiss_gpu_index():
     np.testing.assert_allclose(D_gpu, D_cpu, rtol=1e-5)
 
 
-def test_vllm_imports():
-    """Test that vLLM core classes can be imported (requires GPU)."""
+def test_vllm_generate():
+    """Test that vLLM can load a tiny model on GPU and generate tokens."""
     from vllm import LLM, SamplingParams
 
-    assert LLM is not None
-    assert SamplingParams is not None
+    model_path = os.environ.get("VLLM_TEST_MODEL_PATH", "facebook/opt-125m")
+    llm = LLM(
+        model=model_path,
+        gpu_memory_utilization=0.3,
+        max_model_len=64,
+        enforce_eager=True,
+    )
+    params = SamplingParams(max_tokens=10, temperature=0.0)
+    outputs = llm.generate(["Hello, world"], params)
+
+    assert len(outputs) == 1
+    assert len(outputs[0].outputs) == 1
+    assert len(outputs[0].outputs[0].text) > 0

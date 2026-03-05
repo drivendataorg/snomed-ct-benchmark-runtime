@@ -9,7 +9,7 @@
 #     -t snomed-ct:latest
 
 # Base image with uv and all Python dependencies (except faiss)
-FROM nvidia/cuda:12.6.0-runtime-ubuntu22.04 AS base
+FROM nvidia/cuda:12.6.0-devel-ubuntu22.04 AS base
 COPY --from=ghcr.io/astral-sh/uv:0.9.25 /uv /uvx /bin/
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -102,6 +102,10 @@ FROM base AS test-runtime
 # Install test dependencies (--inexact to avoid removing faiss)
 RUN --mount=type=cache,id=uv-cache,target=/home/runtimeuser/.cache/uv,uid=1000,gid=1000 \
     uv sync --extra test --inexact
+
+# Download a tiny model for vLLM GPU test (network unavailable at runtime)
+ENV VLLM_TEST_MODEL_PATH=/code_execution/.test-models/opt-125m
+RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('facebook/opt-125m', local_dir='${VLLM_TEST_MODEL_PATH}')"
 
 USER root
 COPY --chown=${RUNTIME_USER}:${RUNTIME_USER} tests ./tests
