@@ -9,7 +9,7 @@
 #     -t snomed-ct:latest
 
 # Base image with uv and all Python dependencies (except faiss)
-FROM nvidia/cuda:12.6.0-devel-ubuntu22.04 AS base
+FROM nvidia/cuda:12.6.0-runtime-ubuntu22.04 AS base
 COPY --from=ghcr.io/astral-sh/uv:0.9.25 /uv /uvx /bin/
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -30,6 +30,7 @@ RUN echo "Creating ${RUNTIME_USER} user..." \
 # Install system dependencies (no Python - managed by uv)
 RUN apt-get update --fix-missing \
     && apt-get install -y \
+        cuda-nvcc-12-6 \
         libopenblas0 \
         libgomp1 \
         build-essential \
