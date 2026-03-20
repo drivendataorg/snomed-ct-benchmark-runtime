@@ -106,7 +106,8 @@ RUN --mount=type=cache,id=uv-cache,target=/home/runtimeuser/.cache/uv,uid=1000,g
 
 # Download a tiny model for vLLM GPU test (network unavailable at runtime)
 ENV VLLM_TEST_MODEL_PATH=/code_execution/.test-models/opt-125m
-RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('facebook/opt-125m', local_dir='${VLLM_TEST_MODEL_PATH}')"
+ENV VLLM_TEST_MODEL_REVISION=27dcfa74d334bc871f3234de431e71c6eeba5dd6
+RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('facebook/opt-125m', local_dir='${VLLM_TEST_MODEL_PATH}', revision='${VLLM_TEST_MODEL_REVISION}')"
 
 USER root
 COPY --chown=${RUNTIME_USER}:${RUNTIME_USER} tests ./tests
