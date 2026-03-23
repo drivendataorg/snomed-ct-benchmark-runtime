@@ -3,6 +3,7 @@
 All tests in this file are skipped if no GPU is detected.
 """
 
+import os
 import subprocess
 
 import numpy as np
@@ -21,42 +22,47 @@ GPU_AVAILABLE = is_gpu_available()
 pytestmark = pytest.mark.skipif(not GPU_AVAILABLE, reason="No GPU available")
 
 
-def test_torch_cuda_available():
-    """Test that PyTorch can see CUDA."""
+def test_torch_gpu_matmul():
+    """Test that PyTorch can perform matrix multiplication on GPU and get correct results."""
     import torch
 
     assert torch.cuda.is_available(), "CUDA should be available"
 
+    # Create known matrices on GPU
+    a = torch.tensor([[1.0, 2.0], [3.0, 4.0]], device="cuda")
+    b = torch.tensor([[5.0, 6.0], [7.0, 8.0]], device="cuda")
 
-def test_torch_allocate_tensor():
-    """Test that PyTorch can allocate a tensor on GPU."""
-    import torch
+    result = torch.matmul(a, b)
+    expected = torch.tensor([[19.0, 22.0], [43.0, 50.0]], device="cuda")
 
-    tensor = torch.zeros(1).cuda()
-    assert tensor.device.type == "cuda"
+    assert result.device.type == "cuda"
+    torch.testing.assert_close(result, expected)
 
 
-def test_cupy_allocate_array():
-    """Test that CuPy can allocate an array on GPU."""
+def test_cupy_gpu_computation():
+    """Test that CuPy can perform computation on GPU and get correct results."""
     import cupy as cp
 
-    arr = cp.array([1, 2, 3, 4, 5, 6])
-    assert arr.device.id >= 0
+    a = cp.array([[1.0, 2.0], [3.0, 4.0]])
+    b = cp.array([[5.0, 6.0], [7.0, 8.0]])
+
+    result = cp.dot(a, b)
+    expected = cp.array([[19.0, 22.0], [43.0, 50.0]])
+
+    assert result.device.id >= 0
+    cp.testing.assert_array_almost_equal(result, expected)
 
 
 def test_spacy_gpu():
-    """Test spaCy can use GPU."""
+    """Test spaCy can activate GPU and run a pipeline on it."""
     import spacy
 
     spacy.require_gpu()
-
-
-def test_faiss_gpu_available():
-    """Test that FAISS can see GPUs."""
-    import faiss
-
-    ngpus = faiss.get_num_gpus()
-    assert ngpus > 0, "FAISS should detect at least one GPU"
+    nlp = spacy.blank("en")
+    nlp.add_pipe("sentencizer")
+    doc = nlp("This is sentence one. This is sentence two.")
+    sentences = list(doc.sents)
+    assert len(sentences) == 2
 
 
 def test_faiss_gpu_index():
@@ -101,9 +107,20 @@ def test_faiss_gpu_index():
     np.testing.assert_allclose(D_gpu, D_cpu, rtol=1e-5)
 
 
-def test_vllm_imports():
-    """Test that vLLM core classes can be imported (requires GPU)."""
+def test_vllm_generate():
+    """Test that vLLM can load a tiny model on GPU and generate tokens."""
     from vllm import LLM, SamplingParams
 
-    assert LLM is not None
-    assert SamplingParams is not None
+    model_path = os.environ.get("VLLM_TEST_MODEL_PATH", "facebook/opt-125m")
+    llm = LLM(
+        model=model_path,
+        gpu_memory_utilization=0.3,
+        max_model_len=64,
+        enforce_eager=True,
+    )
+    params = SamplingParams(max_tokens=10, temperature=0.0)
+    outputs = llm.generate(["Hello, world"], params)
+
+    assert len(outputs) == 1
+    assert len(outputs[0].outputs) == 1
+    assert len(outputs[0].outputs[0].text) > 0

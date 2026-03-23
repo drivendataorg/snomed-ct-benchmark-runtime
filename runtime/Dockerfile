@@ -30,6 +30,7 @@ RUN echo "Creating ${RUNTIME_USER} user..." \
 # Install system dependencies (no Python - managed by uv)
 RUN apt-get update --fix-missing \
     && apt-get install -y \
+        cuda-nvcc-12-6 \
         libopenblas0 \
         libgomp1 \
         build-essential \
@@ -102,6 +103,11 @@ FROM base AS test-runtime
 # Install test dependencies (--inexact to avoid removing faiss)
 RUN --mount=type=cache,id=uv-cache,target=/home/runtimeuser/.cache/uv,uid=1000,gid=1000 \
     uv sync --extra test --inexact
+
+# Download a tiny model for vLLM GPU test (network unavailable at runtime)
+ENV VLLM_TEST_MODEL_PATH=/code_execution/.test-models/opt-125m
+ENV VLLM_TEST_MODEL_REVISION=27dcfa74d334bc871f3234de431e71c6eeba5dd6
+RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('facebook/opt-125m', local_dir='${VLLM_TEST_MODEL_PATH}', revision='${VLLM_TEST_MODEL_REVISION}')"
 
 USER root
 COPY --chown=${RUNTIME_USER}:${RUNTIME_USER} tests ./tests
