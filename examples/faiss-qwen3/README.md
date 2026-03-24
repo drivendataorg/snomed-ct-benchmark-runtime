@@ -77,7 +77,7 @@ uv run scripts/scoring.py \
 
 The index is built from `flattened_terminology.jsonl`. For each concept, the preferred name and all synonyms are normalized and vectorized using TF-IDF character n-grams (3-5 characters). The sparse vectors are reduced to 256 dimensions with TruncatedSVD and indexed in a FAISS inner-product index for fast cosine similarity search.
 
-### Mention detection (`iter_exact_mentions`)
+### Mention detection (`iter_mentions`)
 
 Clinical notes are tokenized and all contiguous subsequences of up to 6 tokens are checked against the terminology index. Only spans that exactly match a normalized term are kept. Overlapping mentions are resolved by preferring longer, higher-confidence spans.
 
