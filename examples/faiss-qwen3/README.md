@@ -9,7 +9,7 @@ This is a working example submission that demonstrates a two-stage approach to S
 
 - **[uv](https://docs.astral.sh/uv/)** 
 - **SNOMED CT RF2 release (International November 2025 Edition)**. Place the ZIP in `data/` or set the `SNOMED_RF2_ZIP` environment variable.
-- **HuggingFace token** to download Qwen3-4Bmodel weights. Set the `HF_TOKEN` environment variable or use the huggingface cli to run `hf auth login`
+- **HuggingFace token** to download Qwen3-4B model weights. Set the `HF_TOKEN` environment variable or use the huggingface cli to run `hf auth login`
 - **GPU with >=8GB VRAM (optional, recommended)**. Qwen3-4B runs on CPU but will be very slow. 
 
 ## Setup
