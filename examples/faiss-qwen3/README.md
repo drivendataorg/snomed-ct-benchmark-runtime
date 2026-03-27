@@ -55,7 +55,7 @@ This step requires that you have downloaded `train_notes.csv` and `train_annotat
 just smoke-test-data
 ```
 
-This creates a local `smoke_test_notes.csv` and `smoke_test_annotations.csv` files that should be identical to those contained in the benchmark smoke test environment. Since the benchmark environment looks for `test_notes.csv`, you should copy or symlink `test_notes.csv` to `smoke_test_notes.csv` before running the test. 
+This creates local `test_notes.csv` and `smoke_test_annotations.csv` files that should be identical to those contained in the benchmark smoke test environment. 
 
 ### 4. Test the submission
 
@@ -67,8 +67,8 @@ just test-submission
 
 ```sh
 uv run scripts/scoring.py \
-    --preds submission/predictions.csv \
-    --annotations data/smoke_test_annotations.csv
+    submission/predictions.csv \
+    data/smoke_test_annotations.csv
 ```
 
 ## How it works

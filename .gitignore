@@ -10,3 +10,5 @@ examples/embedding-qwen3/model/
 examples/embedding-qwen3/embedding_model/
 examples/embedding-qwen3/dense_index.faiss
 examples/embedding-qwen3/dense_variants.jsonl
+__pycache__
+.pyc
