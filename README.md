@@ -5,7 +5,8 @@
 Welcome to the data and runtime repository for the SNOMED CT Entity Linking Benchmark. This repository contains a few things:
 
 1. **Submission template** ([`examples/template/`](./examples/template/main.py)) — a template with the function signatures that you should implement in your submission.
-1. **Example submission** ([`examples/submission/`](./examples/submission/main.py/)) — a submission with a simple demonstration solution. It will run successfully in the code execution runtime and outputs a valid submission.
+1. **Example submission** ([`examples/submission/`](./examples/submission/main.py)) — a submission with a simple demonstration solution. It will run successfully in the code execution runtime and outputs a valid submission.
+1. **FAISS + Qwen3 example** ([`examples/faiss-qwen3/`](./examples/faiss-qwen3/)) — a more complete example using FAISS-based terminology search and an LLM (Qwen3-4B) for concept disambiguation. See its [README](./examples/faiss-qwen3/README.md) for setup instructions.
 1. **Runtime environment specification** ([`runtime/`](./runtime/)) — the definition of the environment where your code will run.
 
 You can use this repository to:

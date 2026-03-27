@@ -1,13 +1,20 @@
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#     "polars>=1",
+#     "typer",
+# ]
+# ///
 from pathlib import Path
 
-import pandas as pd
+import polars as pl
 import typer
 
 
 def main(train_notes_path: Path, train_annotations_path: Path):
     # Read training data
-    train_notes = pd.read_csv(train_notes_path)
-    train_annotations = pd.read_csv(train_annotations_path)
+    train_notes = pl.read_csv(train_notes_path)
+    train_annotations = pl.read_csv(train_annotations_path)
 
     # Subset to smoke test notes
     smoke_test_note_ids = [
@@ -17,14 +24,21 @@ def main(train_notes_path: Path, train_annotations_path: Path):
         "10043750-DS-6",
         "10060142-DS-9",
     ]
-    smoke_notes = train_notes[train_notes.note_id.isin(smoke_test_note_ids)]
-    smoke_annotations = train_annotations[
-        train_annotations.note_id.isin(smoke_test_note_ids)
-    ]
+    smoke_notes = train_notes.filter(pl.col("note_id").is_in(smoke_test_note_ids))
+    smoke_annotations = train_annotations.filter(
+        pl.col("note_id").is_in(smoke_test_note_ids)
+    )
 
-    # Write to expected places in data/
-    smoke_notes.to_csv("data/test_notes.csv", index=False)
-    smoke_annotations.to_csv("data/smoke_test_annotations.csv", index=False)
+    # Cast to expected dtypes and write to data/
+    smoke_notes = smoke_notes.cast({"note_id": pl.String})
+    smoke_annotations = smoke_annotations.cast({
+        "note_id": pl.String,
+        "start": pl.Int64,
+        "end": pl.Int64,
+        "concept_id": pl.String,
+    })
+    smoke_notes.write_csv("data/test_notes.csv")
+    smoke_annotations.write_csv("data/smoke_test_annotations.csv")
 
 
 if __name__ == "__main__":

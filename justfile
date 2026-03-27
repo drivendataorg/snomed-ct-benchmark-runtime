@@ -195,16 +195,13 @@ _confirm_submission_overwrite:
     @echo "Overwriting existing submission/submission.zip file."
     rm -f submission/submission.zip
 
-# Create submission.zip from examples folder (e.g., just pack-example submission)
+# Pack example submission into a submission.zip file (e.g., just pack-example submission)
 [group('* test submission locally')]
 pack-example example_name="submission":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if [[ -f ./submission/submission.zip ]]; then
-        just _confirm_submission_overwrite
+    @if [ -f "./submission/submission.zip" ]; then \
+        just _confirm_submission_overwrite; \
     fi
-    mkdir -p submission/
-    cd examples/{{example_name}} && zip -r ../../submission/submission.zip ./*
+    bash examples/{{example_name}}/pack_submission.sh submission/
 
 # Create submission.zip from submission_src folder
 [group('* test submission locally')]
